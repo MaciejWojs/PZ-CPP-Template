@@ -15,7 +15,9 @@ env:
   HTML_DIR: ./docs/html
   PYTHON_VERSION: 3.13
   UML_FILE: uml.puml
+  UML_WITHOUT_EXT: uml
   HEADER_FILE: ___HEADER_FILE___
+  JAVA_VERSION: 23
 
 jobs:
   Create_documentation:
@@ -27,6 +29,12 @@ jobs:
       - name: Set up Git repository
         uses: actions/checkout@v4
       
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'zulu'
+
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -81,7 +89,22 @@ jobs:
           echo -e "PLANTUML_CFG_FILE      = config.txt\n" >> Doxyfile
           echo -e "skinparam monochrome reverse\nskinparam backgroundColor transparent\n" > config.txt
 
+      - name: Generate UML assets
+        run: |
+          java -jar plantuml.jar -tpng ${{ env.UML_FILE }}
+          java -jar plantuml.jar -tpng ${{ env.UML_FILE }} -config config.txt
+          java -jar plantuml.jar -tsvg ${{ env.UML_FILE }}
+          java -jar plantuml.jar -tsvg ${{ env.UML_FILE }} -config config.txt
+      
+      - name: Rename UML assets
+        run: |
+          mv ${{env.UML_WITHOUT_EXT}}.png uml_white.png
+          mv ${{env.UML_WITHOUT_EXT}}.png uml_dark.png
+          
+          mv ${{env.UML_WITHOUT_EXT}}.svg uml_white.svg
+          mv ${{env.UML_WITHOUT_EXT}}.svg uml_dark.svg
 
+      
       - name: Prettify doxygen
         run: |
           latest_version=$(curl -s https://api.github.com/repos/jothepro/doxygen-awesome-css/releases/latest | jq -r '.tag_name')
@@ -161,7 +184,13 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
-          artifacts: "pl-${{ env.FILE_NAME }}.pdf,en-${{ env.FILE_NAME }}.pdf"
+          artifacts: |
+            pl-${{ env.FILE_NAME }}.pdf
+            en-${{ env.FILE_NAME }}.pdf
+            ${{env.UML_WITHOUT_EXT}}-white.png
+            ${{env.UML_WITHOUT_EXT}}-dark.png
+            ${{env.UML_WITHOUT_EXT}}-white.svg
+            ${{env.UML_WITHOUT_EXT}}-dark.svg
 
       - name: Send Discord Notification
         if: env.IS_TAG == 'true'
